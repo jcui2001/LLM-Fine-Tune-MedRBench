@@ -13,19 +13,18 @@ from openai import OpenAI
 QWQ_URL = 'https://api.siliconflow.cn/v1/'
 QWQ_API_KEY = 'YOUR_API_KEY'
 
-GEMINI_URL = 'https://aigptapi.com/v1/'
-GEMINI_API_KEY = 'YOUR_API_KEY'
+GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
+GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'
 
 DEEPSEEK_R1_URL = "http://10.17.3.65:1025/v1/chat/completions"
 
 O1_API_KEY_LIST = [
-    "sk-oJTcF42OtAkjkA2MCFVXjVLGJLghrCPJ8a9XIJ1JE0NoYVmb",
     'YOUR_API_KEY'
 ]
 
 DEFAULT_SYSTEM_PROMPT = "You are a professional doctor"
 DATA_PATH = '../../data/MedRBench/diagnosis_957_cases_with_rare_disease_491.json'
-PROMPT_TEMPLATE_PATH = './oracle_diagnose.txt'
+PROMPT_TEMPLATE_PATH = './instructions/oracle_diagnose.txt'
 
 # =====================
 # MODEL API INTERFACES
@@ -150,7 +149,7 @@ def query_o1_model(input_text, system_prompt=DEFAULT_SYSTEM_PROMPT):
                 return "Error."
             time.sleep(5)
 
-def query_gemini_model(input_text, system_prompt=DEFAULT_SYSTEM_PROMPT):
+def query_gemini_model(input_text, model, system_prompt=DEFAULT_SYSTEM_PROMPT):
     """Query the Gemini model and handle rate limits"""
     client = OpenAI(
         base_url=GEMINI_URL,
@@ -159,7 +158,7 @@ def query_gemini_model(input_text, system_prompt=DEFAULT_SYSTEM_PROMPT):
     while True:
         try:
             response = client.chat.completions.create(
-                model="gemini-2.0-flash-thinking-exp-01-21",
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": input_text}
@@ -297,7 +296,7 @@ def process_o1_data(data_id, data, prompt_template):
         print(f"Error processing O1 data {data_id}: {e}")
         return data_id, None
 
-def process_gemini_data(data_id, data, prompt_template):
+def process_gemini_data(data_id, data, model, prompt_template):
     """Process a single data item with Gemini model"""
        
     try:
@@ -306,7 +305,7 @@ def process_gemini_data(data_id, data, prompt_template):
         prompt = prompt_template.format(case=patient_case)
         result['input'] = prompt
         
-        response = query_gemini_model(prompt)
+        response = query_gemini_model(prompt, model)
         result['content'] = response
                 
         return data_id, result
@@ -333,7 +332,7 @@ def run_inference_with_model(
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for data_id, data_item in data.items():
-            futures.append(executor.submit(process_func, data_id, data_item, prompt_template))
+            futures.append(executor.submit(process_func, data_id, data_item, model_name, prompt_template))
 
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc=f"Processing with {model_name}"):
             data_id, result = future.result()
@@ -368,12 +367,12 @@ def inference_o1():
         max_workers=8
     )
 
-def inference_gemini():
+def inference_gemini(model_name):
     """Run inference with Gemini model"""
     run_inference_with_model(
         process_gemini_data,
-        "gemini2-ft",
-        "oracle_diagnosis_gemini.json",
+        model_name,
+        f"oracle_diagnosis_gemini_{model_name}.json",
         max_workers=8
     )
 
@@ -409,9 +408,79 @@ def inference_baichuan():
 
 if __name__ == "__main__":
     # Run inference with all models
-    inference_qwq()
-    inference_deepseek_r1()
-    inference_o1()
-    inference_gemini()
+    # inference_qwq()
+    # inference_deepseek_r1()
+    # inference_o1()
+    '''client = OpenAI(
+        base_url=GEMINI_URL,
+        api_key=GEMINI_API_KEY
+    )
+    gemini_models = client.models.list()
+
+    for model in gemini_models:
+        print(model.id)'''
+    inference_gemini("gemini-3.5-flash")
     # Only run this if you have the Baichuan model and CUDA support
-    inference_baichuan()
+    # inference_baichuan()
+    
+    '''models/gemini-2.5-flash
+        models/gemini-2.5-pro
+        models/gemini-2.5-flash-preview-tts
+        models/gemini-2.5-pro-preview-tts
+        models/gemma-4-26b-a4b-it
+        models/gemma-4-31b-it
+        models/gemini-flash-latest
+        models/gemini-flash-lite-latest
+        models/gemini-pro-latest
+        models/gemini-2.5-flash-lite
+        models/gemini-2.5-flash-image
+        models/gemini-3-flash-preview
+        models/gemini-3.1-pro-preview
+        models/gemini-3.1-pro-preview-customtools
+        models/gemini-3.1-flash-lite-preview
+        models/gemini-3.1-flash-lite
+        models/gemini-3-pro-image-preview
+        models/gemini-3-pro-image
+        models/nano-banana-pro-preview
+        models/gemini-3.1-flash-image-preview
+        models/gemini-3.1-flash-image
+        models/gemini-3.1-flash-lite-image
+        models/gemini-3.5-flash
+        models/gemini-3.5-flash-lite
+        models/gemini-omni-flash-preview
+        models/gemini-omni-1.1-flash
+        models/gemini-3.5-transcribe
+        models/gemini-3.6-flash
+        models/gemini-3.7-flash
+        models/gemini-3.8-flash
+        models/lyria-3-clip-preview
+        models/lyria-3-pro-preview
+        models/lyria-3.5
+        models/gemini-3.1-flash-tts-preview
+        models/gemini-3.8-flash-tts
+        models/gemini-3.8-flash-lite-tts
+        models/gemini-robotics-er-2-preview
+        models/gemini-2.5-computer-use-preview-10-2025
+        models/antigravity-preview-05-2026
+        models/antigravity-preview-09-2026
+        models/antigravity-preview-latest
+        models/deep-research-max-preview-04-2026
+        models/deep-research-preview-04-2026
+        models/deep-research-pro-preview-12-2025
+        models/gemini-embedding-001
+        models/gemini-embedding-2-preview
+        models/gemini-embedding-2
+        models/aqa
+        models/veo-3.1-generate-preview
+        models/veo-3.1-fast-generate-preview
+        models/veo-3.1-lite-generate-preview
+        models/gemini-3.5-transcribe-live
+        models/gemini-2.5-flash-native-audio-latest
+        models/gemini-2.5-flash-native-audio-preview-09-2025
+        models/gemini-2.5-flash-native-audio-preview-12-2025
+        models/gemini-3.1-flash-live-preview
+        models/gemini-3.8-live
+        models/gemini-3.8-live-extended-thinking
+        models/gemini-robotics-er-2-streaming-preview
+        models/gemini-3.5-live-translate-preview
+        models/lyria-realtime-exp'''
